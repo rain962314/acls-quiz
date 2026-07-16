@@ -136,6 +136,13 @@
     text-align:center; font-size:.78rem; color:var(--muted);
     margin:18px 8px 0; line-height:1.6;
   }
+  .opt.selected{border-color:var(--navy); background:#eef2f6;}
+  .opt.selected .tag{background:var(--navy); color:#fff;}
+  .mode-desc{font-size:.82rem; color:var(--muted); margin-top:8px;}
+  .exam-banner{
+    background:#fff6e8; border:1px solid #f0d8a8; color:#7a5a12;
+    padding:8px 12px; border-radius:8px; font-size:.82rem; margin-bottom:12px;
+  }
 </style>
 </head>
 <body>
@@ -161,6 +168,14 @@
     <div class="card">
       <h2>2. 出題設定</h2>
       <div class="row">
+        <span style="font-size:.9rem; color:var(--muted);">測驗模式：</span>
+        <div class="toggle-group" id="mode-toggle">
+          <button type="button" data-val="practice" class="active">練習模式</button>
+          <button type="button" data-val="exam">模擬考模式</button>
+        </div>
+      </div>
+      <p class="mode-desc" id="mode-desc">練習模式：每題作答後立即顯示對錯與 2025 AHA 解析。</p>
+      <div class="row" style="margin-top:14px;">
         <span style="font-size:.9rem; color:var(--muted);">出題順序：</span>
         <div class="toggle-group" id="order-toggle">
           <button type="button" data-val="sequential" class="active">依原順序</button>
@@ -183,6 +198,7 @@
   <!-- ===== QUIZ SCREEN ===== -->
   <div id="quiz-screen" class="hidden">
     <div class="card">
+      <div class="exam-banner hidden" id="exam-banner">模擬考模式：作答後不會立即顯示對錯，請完成全部題目後再統一檢視結果與解析。</div>
       <div class="meta-row">
         <span id="q-counter"></span>
         <span class="cat-tag" id="q-cat"></span>
@@ -244,10 +260,16 @@
   const resultScreen = document.getElementById('result-screen');
 
   let order = 'sequential';
+  let mode = 'practice'; // 'practice' | 'exam'
   let quizQueue = [];
   let currentIndex = 0;
   let userAnswers = []; // {id, correct, chosen}
   let selectedOption = null;
+
+  const MODE_DESC = {
+    practice: '練習模式：每題作答後立即顯示對錯與 2025 AHA 解析。',
+    exam: '模擬考模式：作答不會立即顯示對錯，完成全部題目後再統一檢視結果與解析，更貼近實際考試情境。'
+  };
 
   // ---------- Setup screen ----------
   const catGrid = document.getElementById('cat-grid');
@@ -272,6 +294,15 @@
       document.querySelectorAll('#order-toggle button').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       order = btn.dataset.val;
+    });
+  });
+
+  document.querySelectorAll('#mode-toggle button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#mode-toggle button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = btn.dataset.val;
+      document.getElementById('mode-desc').textContent = MODE_DESC[mode];
     });
   });
 
@@ -321,6 +352,7 @@
     setupScreen.classList.add('hidden');
     resultScreen.classList.add('hidden');
     quizScreen.classList.remove('hidden');
+    document.getElementById('exam-banner').classList.toggle('hidden', mode!=='exam');
     renderQuestion();
   }
 
@@ -363,23 +395,31 @@
     const q = quizQueue[currentIndex];
     const correct = (letter === q.answer);
 
-    document.querySelectorAll('#q-options .opt').forEach(btn=>{
-      btn.classList.add('disabled');
-      const l = btn.dataset.letter;
-      if(l === q.answer){
-        btn.classList.add('correct');
-      } else if(l === letter && !correct){
-        btn.classList.add('wrong');
-      } else {
-        btn.classList.add('faded');
-      }
-    });
+    if(mode === 'exam'){
+      // Exam mode: just mark the chosen option, no reveal until final results.
+      document.querySelectorAll('#q-options .opt').forEach(btn=>{
+        btn.classList.add('disabled');
+        if(btn.dataset.letter === letter) btn.classList.add('selected');
+      });
+    } else {
+      document.querySelectorAll('#q-options .opt').forEach(btn=>{
+        btn.classList.add('disabled');
+        const l = btn.dataset.letter;
+        if(l === q.answer){
+          btn.classList.add('correct');
+        } else if(l === letter && !correct){
+          btn.classList.add('wrong');
+        } else {
+          btn.classList.add('faded');
+        }
+      });
 
-    const explainBox = document.getElementById('explain-box');
-    document.getElementById('explain-verdict').textContent = correct ? '✓ 答對了' : ('✗ 答錯了，正確答案是 '+q.answer);
-    document.getElementById('explain-verdict').className = 'verdict '+(correct?'ok':'no');
-    document.getElementById('explain-text').textContent = q.explanation;
-    explainBox.classList.add('show');
+      const explainBox = document.getElementById('explain-box');
+      document.getElementById('explain-verdict').textContent = correct ? '✓ 答對了' : ('✗ 答錯了，正確答案是 '+q.answer);
+      document.getElementById('explain-verdict').className = 'verdict '+(correct?'ok':'no');
+      document.getElementById('explain-text').textContent = q.explanation;
+      explainBox.classList.add('show');
+    }
 
     document.getElementById('next-btn').disabled = false;
 
@@ -455,6 +495,7 @@
     const ids = JSON.parse(resultScreen.dataset.wrongIds || '[]');
     if(ids.length===0){ alert('目前沒有錯題，太厲害了！'); return; }
     quizQueue = ACLS_QUESTIONS.filter(q=>ids.includes(q.id));
+    mode = 'practice'; // review wrong answers with immediate feedback regardless of original mode
     startQuiz();
   });
 

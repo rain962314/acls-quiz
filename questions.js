@@ -36,7 +36,7 @@ const ACLS_QUESTIONS = [
   explanation:"胸外按壓中斷會使冠狀動脈灌流壓迅速下降，2025 AHA 持續強調將按壓分率（chest compression fraction）最大化、減少中斷次數與時間。" },
 
 { id:4, category:"cpr", question:"進行高品質 CPR 時，下列哪一項最正確？",
-  options:{A:"按壓時讓病人胸廓維持半收縮", B:"每次換人按壓間隔不超過 5 秒", C:"按壓時手肘彎曲，以免太用力", D:"按壓與放鬆時間應大致相同"}, answer:"D",
+  options:{A:"按壓時讓病人胸廓維持半收縮", B:"每次換人按壓間隔至少超過 5 秒", C:"按壓時手肘彎曲，以免太用力", D:"按壓與放鬆時間應大致相同"}, answer:"D",
   explanation:"高品質 CPR 要求每次按壓後「完全回彈」，讓胸廓恢復原狀以利靜脈回流；按壓與放鬆時間應大致各半，手肘應打直以垂直施力。" },
 
 { id:5, category:"airway", question:"已建立氣管內管的通氣方式較正確的是：",
