@@ -1,1 +1,7 @@
 .DS_Store
+admin-tools/*serviceAccount*.json
+admin-tools/*service-account*.json
+admin-tools/*.key.json
+admin-tools/roster*.xlsx
+admin-tools/roster*.xls
+admin-tools/roster*.csv
