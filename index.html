@@ -192,6 +192,17 @@
   #user-bar .links a:hover{text-decoration:underline;}
   .user-bar-expiry{display:block; font-size:.75rem; color:var(--muted); margin-top:2px;}
   .user-bar-expiry.warn{color:var(--red);}
+  .admin-stat-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:12px;}
+  .admin-stat{background:#f7f9fb; border-radius:10px; padding:12px; text-align:center;}
+  .admin-stat .num{font-size:1.5rem; font-weight:800; color:var(--navy);}
+  .admin-stat .label{font-size:.75rem; color:var(--muted); margin-top:2px;}
+  .admin-student-table{font-size:.85rem;}
+  .admin-student-table tr.clickable{cursor:pointer;}
+  .admin-student-table tr.clickable:hover{background:#f7f9fb;}
+  .admin-student-table td.name-cell{color:var(--navy); font-weight:600;}
+  .status-pill{display:inline-block; padding:2px 8px; border-radius:999px; font-size:.72rem; font-weight:700;}
+  .status-pill.active{background:var(--green-bg); color:var(--green);}
+  .status-pill.disabled{background:var(--red-bg); color:var(--red-dark);}
 </style>
 </head>
 <body>
@@ -268,6 +279,7 @@
     <span class="user-bar-expiry" id="user-bar-expiry"></span>
   </span>
   <div class="links">
+    <a id="open-admin-link" class="hidden">後台管理</a>
     <a id="open-history-link">成績紀錄</a>
     <a id="open-wrongbook-link">我的錯題</a>
     <a id="open-profile-link">基本資料</a>
@@ -373,6 +385,67 @@
         <button class="btn btn-primary" id="wrongbook-practice-btn">練習這些錯題</button>
         <button class="btn btn-secondary" id="wrongbook-back-btn">返回</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ADMIN OVERVIEW SCREEN ===== -->
+<div id="admin-screen" class="hidden">
+  <div class="wrap">
+    <div class="card">
+      <h2>後台管理｜全班成效總覽</h2>
+      <div class="admin-stat-grid" id="admin-stats"></div>
+    </div>
+    <div class="card">
+      <h2>各分類正確率（全班累積）</h2>
+      <table class="breakdown" id="admin-cat-table"></table>
+    </div>
+    <div class="card">
+      <h2>學員清單</h2>
+      <p class="small-note" style="margin-top:0;">點選學員姓名可查看詳細紀錄與帳號管理。</p>
+      <div style="overflow-x:auto;">
+        <table class="breakdown admin-student-table" id="admin-student-table"></table>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" id="admin-back-btn">返回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ADMIN STUDENT DETAIL SCREEN ===== -->
+<div id="admin-detail-screen" class="hidden">
+  <div class="wrap">
+    <div class="card">
+      <h2 id="admin-detail-name">學員詳細資料</h2>
+      <div class="form-error" id="admin-detail-error"></div>
+      <div class="form-success" id="admin-detail-success"></div>
+      <table class="breakdown" id="admin-detail-profile"></table>
+    </div>
+    <div class="card">
+      <h2>帳號管理</h2>
+      <div class="row" style="margin-bottom:14px;">
+        <button class="btn btn-secondary" id="admin-send-reset-btn">寄送密碼重設信</button>
+        <button class="btn btn-secondary" id="admin-toggle-disabled-btn">停用帳號</button>
+      </div>
+      <div class="field-group" style="max-width:260px;">
+        <label for="admin-access-days">使用期限（自首次登入起算天數）</label>
+        <input type="number" id="admin-access-days" min="1" style="width:120px; display:inline-block;">
+        <button class="btn btn-primary" id="admin-save-days-btn" style="margin-left:8px; padding:8px 14px;">儲存</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>測驗紀錄</h2>
+      <div id="admin-detail-history-empty" class="small-note hidden">尚無測驗紀錄。</div>
+      <div class="wrong-list" id="admin-detail-history"></div>
+    </div>
+    <div class="card">
+      <h2>目前累積錯題</h2>
+      <div id="admin-detail-wrongbook-empty" class="small-note hidden">目前沒有累積的錯題。</div>
+      <div class="wrong-list" id="admin-detail-wrongbook"></div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" id="admin-detail-back-btn">返回學員清單</button>
     </div>
   </div>
 </div>

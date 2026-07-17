@@ -11,7 +11,8 @@ const app = initializeApp(window.FIREBASE_CONFIG);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-const ACCESS_DAYS = 30; // 學員自第一次登入起算的使用期限（天）
+const ACCESS_DAYS = 30; // 學員自第一次登入起算的使用期限（天，可被 accessDaysOverride 覆蓋）
+const ADMIN_EMAIL = 'rain962314@gmail.com';
 
 const $ = (id) => document.getElementById(id);
 
@@ -23,6 +24,8 @@ const screens = {
   changePwScreen: $('change-pw-screen'),
   historyScreen: $('history-screen'),
   wrongbookScreen: $('wrongbook-screen'),
+  adminScreen: $('admin-screen'),
+  adminDetailScreen: $('admin-detail-screen'),
   setupScreen: $('setup-screen'),
   quizScreen: $('quiz-screen'),
   resultScreen: $('result-screen')
@@ -33,14 +36,15 @@ let currentProfile = null; // cached profile data for the logged-in student
 
 function hide(el){ el.classList.add('hidden'); }
 function show(el){ el.classList.remove('hidden'); }
+function isAdmin(){ return !!auth.currentUser && auth.currentUser.email === ADMIN_EMAIL; }
 
 // The "content area" is whichever single screen is currently active while logged in
-// (setup/quiz/result from the quiz app, or profile/change-pw/history/wrongbook from the
-// account layer). Every navigation action must hide ALL of these before showing its target,
-// otherwise screens stack on top of each other instead of replacing one another.
+// (setup/quiz/result from the quiz app, or profile/change-pw/history/wrongbook/admin from
+// the account layer). Every navigation action must hide ALL of these before showing its
+// target, otherwise screens stack on top of each other instead of replacing one another.
 const CONTENT_SCREENS = [
   'profileScreen', 'changePwScreen', 'historyScreen', 'wrongbookScreen',
-  'setupScreen', 'quizScreen', 'resultScreen'
+  'adminScreen', 'adminDetailScreen', 'setupScreen', 'quizScreen', 'resultScreen'
 ];
 function hideAllContentScreens(){
   CONTENT_SCREENS.forEach(key => hide(screens[key]));
@@ -65,10 +69,11 @@ function showMainApp(){
   show(platformCredit);
   showContentScreen('setupScreen');
   $('user-bar-name').textContent = '歡迎，' + (currentProfile && currentProfile.name ? currentProfile.name : auth.currentUser.email);
+  $('open-admin-link').classList.toggle('hidden', !isAdmin());
 
   const expiryEl = $('user-bar-expiry');
-  if(currentProfile && currentProfile.firstLoginAt){
-    const expiresAt = currentProfile.firstLoginAt + ACCESS_DAYS*24*60*60*1000;
+  if(currentProfile && currentProfile.firstLoginAt && !isAdmin()){
+    const expiresAt = computeExpiresAt(currentProfile);
     const daysLeft = Math.ceil((expiresAt - Date.now()) / (24*60*60*1000));
     expiryEl.textContent = '使用效期至 ' + formatDate(expiresAt) + '（剩 ' + Math.max(daysLeft,0) + ' 天）';
     expiryEl.classList.toggle('warn', daysLeft <= 7);
@@ -123,6 +128,11 @@ function formatDate(ts){
   return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
 }
 
+function computeExpiresAt(profile){
+  const days = profile.accessDaysOverride || ACCESS_DAYS;
+  return (profile.firstLoginAt || Date.now()) + days*24*60*60*1000;
+}
+
 // ---------- Auth state ----------
 onAuthStateChanged(auth, async (user) => {
   if(!user){
@@ -144,15 +154,22 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
+  const admin = user.email === ADMIN_EMAIL;
+
+  if(profile.disabled && !admin){
+    setError('login-error', '此帳號已被停用，如有疑問請聯絡協會。');
+    await signOut(auth);
+    return;
+  }
+
   // First-login timestamp starts the 30-day access window.
   if(!profile.firstLoginAt){
     const now = Date.now();
     try{ await update(ref(db, 'students/' + user.uid), { firstLoginAt: now }); }catch(e){ /* non-fatal */ }
     profile.firstLoginAt = now;
   }
-  const expiresAt = profile.firstLoginAt + ACCESS_DAYS*24*60*60*1000;
-  if(Date.now() > expiresAt){
-    setError('login-error', '此帳號使用期限已於 ' + formatDate(expiresAt) + ' 到期，如需延長使用請聯絡協會。');
+  if(!admin && Date.now() > computeExpiresAt(profile)){
+    setError('login-error', '此帳號使用期限已於 ' + formatDate(computeExpiresAt(profile)) + ' 到期，如需延長使用請聯絡協會。');
     await signOut(auth);
     return;
   }
@@ -403,7 +420,8 @@ window.ACLS_onQuizComplete = async function(result){
       mode: result.mode,
       total: result.total,
       correct: result.correct,
-      pct: result.pct
+      pct: result.pct,
+      byCat: result.byCat || {}
     });
     const updates = {};
     result.userAnswers.forEach(a => {
@@ -421,6 +439,202 @@ window.ACLS_onQuizComplete = async function(result){
     console.error('Failed to save quiz result', err);
   }
 };
+
+// ---------- Admin panel ----------
+let allStudentsCache = null; // {uid: {...profile, history:{}, wrongQuestions:{}}}
+let currentAdminUid = null;
+
+function categoryLabel(key){ return (window.ACLS_CATEGORIES && window.ACLS_CATEGORIES[key]) || key; }
+function questionById(id){ return window.ACLS_QUESTIONS.find(q => q.id === id); }
+
+async function loadAllStudents(){
+  const snap = await get(ref(db, 'students'));
+  allStudentsCache = snap.exists() ? snap.val() : {};
+  return allStudentsCache;
+}
+
+function renderAdminOverview(){
+  const students = allStudentsCache || {};
+  const uids = Object.keys(students);
+  let totalAttempts = 0, totalPctSum = 0;
+  let activeCount = 0;
+  const catTally = {}; // category -> {correct, total}
+
+  uids.forEach(uid => {
+    const s = students[uid];
+    const history = s.history ? Object.values(s.history) : [];
+    if(history.length) activeCount++;
+    history.forEach(h => {
+      totalAttempts++;
+      totalPctSum += (h.pct || 0);
+      const byCat = h.byCat || {};
+      Object.keys(byCat).forEach(cat => {
+        if(!catTally[cat]) catTally[cat] = {correct:0, total:0};
+        catTally[cat].correct += byCat[cat].correct || 0;
+        catTally[cat].total += byCat[cat].total || 0;
+      });
+    });
+  });
+
+  const avgPct = totalAttempts ? Math.round(totalPctSum / totalAttempts) : 0;
+
+  $('admin-stats').innerHTML = [
+    ['學員總數', uids.length],
+    ['已作答學員數', activeCount],
+    ['累計測驗次數', totalAttempts],
+    ['全班平均分數', avgPct + '%']
+  ].map(([label, num]) => '<div class="admin-stat"><div class="num">'+num+'</div><div class="label">'+label+'</div></div>').join('');
+
+  const catRows = Object.keys(catTally)
+    .map(cat => ({ cat, ...catTally[cat], pct: catTally[cat].total ? Math.round(catTally[cat].correct/catTally[cat].total*100) : 0 }))
+    .sort((a,b) => a.pct - b.pct);
+  let catHtml = '<tr><th>分類</th><th>正確率</th><th style="width:110px;"></th></tr>';
+  if(catRows.length === 0){
+    catHtml += '<tr><td colspan="3" class="small-note">尚無資料</td></tr>';
+  } else {
+    catRows.forEach(r => {
+      catHtml += '<tr><td>'+categoryLabel(r.cat)+'</td><td>'+r.correct+'/'+r.total+' ('+r.pct+'%)</td>'+
+        '<td><div class="bar-mini"><div style="width:'+r.pct+'%"></div></div></td></tr>';
+    });
+  }
+  $('admin-cat-table').innerHTML = catHtml;
+
+  let studentHtml = '<tr><th>姓名</th><th>Email</th><th>服務單位/職稱</th><th>測驗次數</th><th>最新分數</th><th>累積錯題</th><th>狀態</th></tr>';
+  uids.forEach(uid => {
+    const s = students[uid];
+    const history = s.history ? Object.values(s.history).sort((a,b) => (b.ts||0)-(a.ts||0)) : [];
+    const latestPct = history.length ? history[0].pct + '%' : '-';
+    const wrongCount = s.wrongQuestions ? Object.keys(s.wrongQuestions).length : 0;
+    const statusHtml = s.disabled
+      ? '<span class="status-pill disabled">已停用</span>'
+      : '<span class="status-pill active">啟用中</span>';
+    studentHtml += '<tr class="clickable" data-uid="'+uid+'">'+
+      '<td class="name-cell">'+(s.name||'(未命名)')+'</td>'+
+      '<td>'+(s.email||'')+'</td>'+
+      '<td>'+[s.org,s.title].filter(Boolean).join(' / ')+'</td>'+
+      '<td>'+history.length+'</td>'+
+      '<td>'+latestPct+'</td>'+
+      '<td>'+wrongCount+'</td>'+
+      '<td>'+statusHtml+'</td></tr>';
+  });
+  $('admin-student-table').innerHTML = studentHtml;
+  $('admin-student-table').querySelectorAll('tr.clickable').forEach(tr => {
+    tr.addEventListener('click', () => openAdminDetail(tr.dataset.uid));
+  });
+}
+
+$('open-admin-link').addEventListener('click', async () => {
+  showContentScreen('adminScreen');
+  $('admin-stats').innerHTML = '載入中…';
+  $('admin-student-table').innerHTML = '';
+  try{
+    await loadAllStudents();
+    renderAdminOverview();
+  } catch(err){
+    $('admin-stats').innerHTML = '<div class="small-note">讀取資料時發生問題，請稍後再試。</div>';
+  }
+});
+
+$('admin-back-btn').addEventListener('click', () => {
+  showContentScreen('setupScreen');
+});
+
+function openAdminDetail(uid){
+  currentAdminUid = uid;
+  const s = (allStudentsCache || {})[uid];
+  if(!s) return;
+  setError('admin-detail-error', ''); setSuccess('admin-detail-success', '');
+
+  $('admin-detail-name').textContent = (s.name || '(未命名)') + ' 的詳細資料';
+  $('admin-detail-profile').innerHTML = [
+    ['Email', s.email || ''],
+    ['手機', s.phone || ''],
+    ['生日', s.birthday || ''],
+    ['服務單位', s.org || ''],
+    ['職稱', s.title || ''],
+    ['證照到期日', s.certExpiry || '（未填）'],
+    ['狀態', s.disabled ? '已停用' : '啟用中'],
+    ['使用效期', s.firstLoginAt ? formatDate(computeExpiresAt(s)) + '（首次登入 ' + formatDate(s.firstLoginAt) + '）' : '尚未登入過']
+  ].map(([k,v]) => '<tr><td style="color:var(--muted); width:110px;">'+k+'</td><td>'+v+'</td></tr>').join('');
+
+  $('admin-toggle-disabled-btn').textContent = s.disabled ? '啟用帳號' : '停用帳號';
+  $('admin-access-days').value = s.accessDaysOverride || ACCESS_DAYS;
+
+  const history = s.history ? Object.values(s.history).sort((a,b) => (b.ts||0)-(a.ts||0)) : [];
+  const histEl = $('admin-detail-history');
+  const histEmptyEl = $('admin-detail-history-empty');
+  if(history.length === 0){
+    histEl.innerHTML = ''; show(histEmptyEl);
+  } else {
+    hide(histEmptyEl);
+    histEl.innerHTML = history.map(h =>
+      '<div class="wq"><div class="q">' + formatDate(h.ts) + '　' + (MODE_LABEL[h.mode] || h.mode) + '</div>' +
+      '<div class="ans">得分：<strong>' + h.pct + '%</strong>　（答對 ' + h.correct + ' / ' + h.total + ' 題）</div></div>'
+    ).join('');
+  }
+
+  const wrongIds = s.wrongQuestions ? Object.keys(s.wrongQuestions).map(x => parseInt(x,10)) : [];
+  const wrongEl = $('admin-detail-wrongbook');
+  const wrongEmptyEl = $('admin-detail-wrongbook-empty');
+  if(wrongIds.length === 0){
+    wrongEl.innerHTML = ''; show(wrongEmptyEl);
+  } else {
+    hide(wrongEmptyEl);
+    wrongEl.innerHTML = wrongIds.map(id => questionById(id)).filter(Boolean).map(q =>
+      '<div class="wq"><div class="q">' + q.question + '</div>' +
+      '<div class="ans">正確答案：<span class="correct-ans">' + q.answer + '. ' + q.options[q.answer] + '</span></div></div>'
+    ).join('');
+  }
+
+  showContentScreen('adminDetailScreen');
+}
+
+$('admin-detail-back-btn').addEventListener('click', () => {
+  showContentScreen('adminScreen');
+});
+
+$('admin-send-reset-btn').addEventListener('click', async () => {
+  const s = (allStudentsCache || {})[currentAdminUid];
+  if(!s || !s.email) return;
+  setError('admin-detail-error', ''); setSuccess('admin-detail-success', '');
+  try{
+    await sendPasswordResetEmail(auth, s.email);
+    setSuccess('admin-detail-success', '已寄送密碼重設信到 ' + s.email);
+  } catch(err){
+    setError('admin-detail-error', '寄送失敗：' + (err.code || err.message));
+  }
+});
+
+$('admin-toggle-disabled-btn').addEventListener('click', async () => {
+  const s = (allStudentsCache || {})[currentAdminUid];
+  if(!s) return;
+  setError('admin-detail-error', ''); setSuccess('admin-detail-success', '');
+  const nextDisabled = !s.disabled;
+  try{
+    await update(ref(db, 'students/' + currentAdminUid), { disabled: nextDisabled });
+    s.disabled = nextDisabled;
+    setSuccess('admin-detail-success', nextDisabled ? '帳號已停用。' : '帳號已重新啟用。');
+    $('admin-toggle-disabled-btn').textContent = nextDisabled ? '啟用帳號' : '停用帳號';
+  } catch(err){
+    setError('admin-detail-error', '更新失敗，請稍後再試。');
+  }
+});
+
+$('admin-save-days-btn').addEventListener('click', async () => {
+  const s = (allStudentsCache || {})[currentAdminUid];
+  if(!s) return;
+  const days = parseInt($('admin-access-days').value, 10);
+  if(!days || days < 1){ setError('admin-detail-error', '請輸入大於 0 的天數。'); return; }
+  setError('admin-detail-error', ''); setSuccess('admin-detail-success', '');
+  try{
+    await update(ref(db, 'students/' + currentAdminUid), { accessDaysOverride: days });
+    s.accessDaysOverride = days;
+    setSuccess('admin-detail-success', '使用期限已更新為自首次登入起 ' + days + ' 天。');
+    openAdminDetail(currentAdminUid); // refresh displayed expiry date
+  } catch(err){
+    setError('admin-detail-error', '更新失敗，請稍後再試。');
+  }
+});
 
 // ---------- Logout ----------
 $('logout-link').addEventListener('click', async () => {
