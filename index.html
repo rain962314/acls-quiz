@@ -183,6 +183,8 @@
   #user-bar .links{display:flex; gap:12px; flex-wrap:wrap;}
   #user-bar .links a{color:var(--navy); cursor:pointer; text-decoration:none; font-weight:600; white-space:nowrap;}
   #user-bar .links a:hover{text-decoration:underline;}
+  .user-bar-expiry{display:block; font-size:.75rem; color:var(--muted); margin-top:2px;}
+  .user-bar-expiry.warn{color:var(--red);}
 </style>
 </head>
 <body>
@@ -261,7 +263,10 @@
 
 <!-- ===== USER BAR ===== -->
 <div id="user-bar" class="hidden">
-  <span id="user-bar-name"></span>
+  <span>
+    <span id="user-bar-name"></span>
+    <span class="user-bar-expiry" id="user-bar-expiry"></span>
+  </span>
   <div class="links">
     <a id="open-history-link">成績紀錄</a>
     <a id="open-wrongbook-link">我的錯題</a>

@@ -65,6 +65,16 @@ function showMainApp(){
   show(platformCredit);
   showContentScreen('setupScreen');
   $('user-bar-name').textContent = '歡迎，' + (currentProfile && currentProfile.name ? currentProfile.name : auth.currentUser.email);
+
+  const expiryEl = $('user-bar-expiry');
+  if(currentProfile && currentProfile.firstLoginAt){
+    const expiresAt = currentProfile.firstLoginAt + ACCESS_DAYS*24*60*60*1000;
+    const daysLeft = Math.ceil((expiresAt - Date.now()) / (24*60*60*1000));
+    expiryEl.textContent = '使用效期至 ' + formatDate(expiresAt) + '（剩 ' + Math.max(daysLeft,0) + ' 天）';
+    expiryEl.classList.toggle('warn', daysLeft <= 7);
+  } else {
+    expiryEl.textContent = '';
+  }
 }
 
 function setError(id, msg){
