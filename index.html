@@ -165,12 +165,24 @@
   .form-success.show{display:block;}
   .auth-wrap{max-width:420px; margin:40px auto;}
   .auth-logo{text-align:center; margin-bottom:6px; font-size:.85rem; color:var(--muted);}
+  .yaozhi-brand{text-align:center; margin-bottom:22px;}
+  .yaozhi-logo{width:88px; height:88px;}
+  .yaozhi-title{
+    margin:8px 0 2px; color:var(--navy); font-size:1.6rem; font-weight:800;
+    letter-spacing:2px; display:flex; align-items:baseline; justify-content:center; gap:10px;
+  }
+  .yaozhi-en{font-size:.75rem; font-weight:700; letter-spacing:3px; color:#D4AF37;}
+  .yaozhi-sub{margin:0; font-size:.82rem; color:var(--muted); letter-spacing:1px;}
+  .platform-credit{
+    text-align:center; font-size:.78rem; color:var(--muted);
+    max-width:760px; margin:4px auto 0; line-height:1.6;
+  }
   #user-bar{
-    display:flex; justify-content:space-between; align-items:center;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px 16px;
     max-width:760px; margin:0 auto; padding:10px 16px; font-size:.85rem; color:var(--muted);
   }
-  #user-bar .links{display:flex; gap:14px;}
-  #user-bar .links a{color:var(--navy); cursor:pointer; text-decoration:none; font-weight:600;}
+  #user-bar .links{display:flex; gap:12px; flex-wrap:wrap;}
+  #user-bar .links a{color:var(--navy); cursor:pointer; text-decoration:none; font-weight:600; white-space:nowrap;}
   #user-bar .links a:hover{text-decoration:underline;}
 </style>
 </head>
@@ -184,6 +196,17 @@
 <!-- ===== AUTH SCREEN (login) ===== -->
 <div id="auth-screen">
   <div class="wrap auth-wrap">
+    <div class="yaozhi-brand">
+      <svg viewBox="0 0 200 200" class="yaozhi-logo" aria-hidden="true">
+        <circle cx="100" cy="100" r="88" fill="none" stroke="#D4AF37" stroke-width="3"/>
+        <path d="M100 24 L107 46 L129 41 L114 57 L131 71 L108 67 L100 90 L92 67 L69 71 L86 57 L71 41 L93 46 Z" fill="#D4AF37"/>
+        <path d="M38 122 Q70 106 99 122 L99 158 Q70 142 38 158 Z" fill="#0D1B3D"/>
+        <path d="M162 122 Q130 106 101 122 L101 158 Q130 142 162 158 Z" fill="#0D1B3D"/>
+        <polyline points="42,130 68,130 77,110 87,148 96,122 101,130 158,130" fill="none" stroke="#D4AF37" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1 class="yaozhi-title">曜知<span class="yaozhi-en">YAOZHI</span></h1>
+      <p class="yaozhi-sub">醫療學習平台 Learning Platform</p>
+    </div>
     <div class="card">
       <h2>學員登入</h2>
       <div class="form-error" id="login-error"></div>
@@ -198,7 +221,20 @@
       <div class="actions" style="margin-top:6px;">
         <button class="btn btn-primary" id="login-btn" style="width:100%;">登入</button>
       </div>
-      <p class="small-note">帳號為協會登記的 Email，初次登入密碼為預設密碼，登入後請立即修改。忘記密碼請聯絡協會協助重設。</p>
+      <p class="small-note"><a class="reset-link" id="forgot-pw-link">忘記密碼？</a></p>
+
+      <div class="field-group hidden" id="forgot-pw-box" style="margin-top:10px; border-top:1px solid var(--border); padding-top:14px;">
+        <label for="forgot-pw-email">請輸入帳號 Email，我們會寄送重設密碼連結</label>
+        <input type="email" id="forgot-pw-email" autocomplete="username">
+        <div class="form-error" id="forgot-pw-error"></div>
+        <div class="form-success" id="forgot-pw-success"></div>
+        <div class="actions" style="margin-top:10px;">
+          <button class="btn btn-primary" id="forgot-pw-submit">寄送重設連結</button>
+          <button class="btn btn-secondary" id="forgot-pw-cancel">取消</button>
+        </div>
+      </div>
+
+      <p class="small-note">帳號為協會登記的 Email，初次登入密碼為預設密碼，登入後請立即修改。</p>
     </div>
   </div>
 </div>
@@ -229,11 +265,14 @@
 <div id="user-bar" class="hidden">
   <span id="user-bar-name"></span>
   <div class="links">
+    <a id="open-history-link">成績紀錄</a>
+    <a id="open-wrongbook-link">我的錯題</a>
     <a id="open-profile-link">基本資料</a>
     <a id="open-changepw-link">修改密碼</a>
     <a id="logout-link">登出</a>
   </div>
 </div>
+<p class="platform-credit hidden" id="platform-credit">本課程由社團法人台灣帕德魅迪克國際救護發展協會提供。線上學習平台、題庫內容及系統技術由「曜知」設計與提供。</p>
 
 <!-- ===== PROFILE SCREEN ===== -->
 <div id="profile-screen" class="hidden">
@@ -267,7 +306,7 @@
         <input type="text" id="profile-title">
       </div>
       <div class="field-group">
-        <label for="profile-cert-expiry">證照到期日</label>
+        <label for="profile-cert-expiry">證照到期日（選填）</label>
         <input type="date" id="profile-cert-expiry">
       </div>
       <div class="actions">
@@ -300,6 +339,36 @@
       <div class="actions">
         <button class="btn btn-primary" id="change-pw-submit">更新密碼</button>
         <button class="btn btn-secondary" id="change-pw-back-btn">返回</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCORE HISTORY SCREEN ===== -->
+<div id="history-screen" class="hidden">
+  <div class="wrap">
+    <div class="card">
+      <h2>成績紀錄</h2>
+      <div id="history-empty" class="small-note hidden">目前還沒有測驗紀錄，完成一次測驗後就會顯示在這裡。</div>
+      <div class="wrong-list" id="history-list"></div>
+      <div class="actions">
+        <button class="btn btn-secondary" id="history-back-btn">返回</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== WRONG QUESTION NOTEBOOK SCREEN ===== -->
+<div id="wrongbook-screen" class="hidden">
+  <div class="wrap">
+    <div class="card">
+      <h2>我的錯題</h2>
+      <p class="small-note" style="margin-top:0;">彙整你在任何一次測驗中答錯過、且尚未答對的題目；答對後會自動從這裡移除。</p>
+      <div id="wrongbook-empty" class="small-note hidden">目前沒有累積的錯題，繼續保持！</div>
+      <div class="wrong-list" id="wrongbook-list"></div>
+      <div class="actions">
+        <button class="btn btn-primary" id="wrongbook-practice-btn">練習這些錯題</button>
+        <button class="btn btn-secondary" id="wrongbook-back-btn">返回</button>
       </div>
     </div>
   </div>
@@ -643,7 +712,26 @@
 
     // stash wrong ids for retry
     resultScreen.dataset.wrongIds = JSON.stringify(wrongs.map(a=>a.id));
+
+    // Let the auth/profile layer (auth-app.js) persist this attempt & update the wrong-question notebook.
+    if(typeof window.ACLS_onQuizComplete === 'function'){
+      window.ACLS_onQuizComplete({
+        mode: mode,
+        total: total,
+        correct: correctCount,
+        pct: pct,
+        byCat: byCat,
+        userAnswers: userAnswers.slice()
+      });
+    }
   }
+
+  // Allows auth-app.js (成績紀錄 / 我的錯題) to launch a quiz from an arbitrary question list.
+  window.ACLS_startWithQuestions = function(questionList){
+    quizQueue = questionList;
+    mode = 'practice';
+    startQuiz();
+  };
 
   document.getElementById('retry-wrong-btn').addEventListener('click', ()=>{
     const ids = JSON.parse(resultScreen.dataset.wrongIds || '[]');

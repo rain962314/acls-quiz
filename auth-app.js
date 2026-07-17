@@ -1,15 +1,17 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
-  updatePassword, EmailAuthProvider, reauthenticateWithCredential
+  updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
-  getDatabase, ref, get, update
+  getDatabase, ref, get, update, push, remove
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 
 const app = initializeApp(window.FIREBASE_CONFIG);
 const auth = getAuth(app);
 const db = getDatabase(app);
+
+const ACCESS_DAYS = 30; // 學員自第一次登入起算的使用期限（天）
 
 const $ = (id) => document.getElementById(id);
 
@@ -19,10 +21,13 @@ const screens = {
   userBar: $('user-bar'),
   profileScreen: $('profile-screen'),
   changePwScreen: $('change-pw-screen'),
+  historyScreen: $('history-screen'),
+  wrongbookScreen: $('wrongbook-screen'),
   setupScreen: $('setup-screen'),
   quizScreen: $('quiz-screen'),
   resultScreen: $('result-screen')
 };
+const platformCredit = $('platform-credit');
 
 let currentProfile = null; // cached profile data for the logged-in student
 
@@ -34,9 +39,12 @@ function showLoggedOutState(){
   hide(screens.userBar);
   hide(screens.profileScreen);
   hide(screens.changePwScreen);
+  hide(screens.historyScreen);
+  hide(screens.wrongbookScreen);
   hide(screens.setupScreen);
   hide(screens.quizScreen);
   hide(screens.resultScreen);
+  hide(platformCredit);
   show(screens.authScreen);
 }
 
@@ -45,9 +53,12 @@ function showMainApp(){
   hide(screens.forcePwScreen);
   hide(screens.profileScreen);
   hide(screens.changePwScreen);
+  hide(screens.historyScreen);
+  hide(screens.wrongbookScreen);
   hide(screens.quizScreen);
   hide(screens.resultScreen);
   show(screens.userBar);
+  show(platformCredit);
   show(screens.setupScreen);
   $('user-bar-name').textContent = '歡迎，' + (currentProfile && currentProfile.name ? currentProfile.name : auth.currentUser.email);
 }
@@ -66,7 +77,7 @@ function setSuccess(id, msg){
 function friendlyAuthError(err){
   const code = err && err.code;
   if(code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found'){
-    return '帳號或密碼錯誤，請確認後再試一次。忘記密碼請聯絡協會協助重設。';
+    return '帳號或密碼錯誤，請確認後再試一次。忘記密碼請點下方連結重設。';
   }
   if(code === 'auth/too-many-requests'){
     return '嘗試次數過多，請稍後再試。';
@@ -92,6 +103,12 @@ function fillProfileForm(profile){
   $('profile-cert-expiry').value = profile.certExpiry || '';
 }
 
+function formatDate(ts){
+  if(!ts) return '';
+  const d = new Date(ts);
+  return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
+}
+
 // ---------- Auth state ----------
 onAuthStateChanged(auth, async (user) => {
   if(!user){
@@ -112,10 +129,25 @@ onAuthStateChanged(auth, async (user) => {
     await signOut(auth);
     return;
   }
+
+  // First-login timestamp starts the 30-day access window.
+  if(!profile.firstLoginAt){
+    const now = Date.now();
+    try{ await update(ref(db, 'students/' + user.uid), { firstLoginAt: now }); }catch(e){ /* non-fatal */ }
+    profile.firstLoginAt = now;
+  }
+  const expiresAt = profile.firstLoginAt + ACCESS_DAYS*24*60*60*1000;
+  if(Date.now() > expiresAt){
+    setError('login-error', '此帳號使用期限已於 ' + formatDate(expiresAt) + ' 到期，如需延長使用請聯絡協會。');
+    await signOut(auth);
+    return;
+  }
+
   currentProfile = profile;
   if(profile.mustChangePassword){
     hide(screens.authScreen);
     hide(screens.userBar);
+    hide(platformCredit);
     show(screens.forcePwScreen);
     return;
   }
@@ -139,6 +171,27 @@ $('login-btn').addEventListener('click', async () => {
   }
 });
 $('login-password').addEventListener('keydown', (e)=>{ if(e.key==='Enter') $('login-btn').click(); });
+
+// ---------- Forgot password ----------
+$('forgot-pw-link').addEventListener('click', () => {
+  setError('forgot-pw-error', ''); setSuccess('forgot-pw-success', '');
+  $('forgot-pw-email').value = $('login-email').value.trim();
+  show($('forgot-pw-box'));
+});
+$('forgot-pw-cancel').addEventListener('click', () => {
+  hide($('forgot-pw-box'));
+});
+$('forgot-pw-submit').addEventListener('click', async () => {
+  setError('forgot-pw-error', ''); setSuccess('forgot-pw-success', '');
+  const email = $('forgot-pw-email').value.trim();
+  if(!email){ setError('forgot-pw-error', '請輸入 Email。'); return; }
+  try{
+    await sendPasswordResetEmail(auth, email);
+    setSuccess('forgot-pw-success', '已寄出重設密碼信件，請至信箱查收並點擊連結設定新密碼（請留意垃圾郵件匣）。');
+  } catch(err){
+    setError('forgot-pw-error', friendlyAuthError(err));
+  }
+});
 
 // ---------- Forced password change (first login) ----------
 $('force-pw-submit').addEventListener('click', async () => {
@@ -240,6 +293,126 @@ $('change-pw-submit').addEventListener('click', async () => {
     }
   }
 });
+
+// ---------- Score history ----------
+const MODE_LABEL = { practice: '練習模式', exam: '模擬考模式' };
+
+$('open-history-link').addEventListener('click', async () => {
+  hide(screens.setupScreen); hide(screens.quizScreen); hide(screens.resultScreen);
+  show(screens.historyScreen);
+  const listEl = $('history-list');
+  const emptyEl = $('history-empty');
+  listEl.innerHTML = '載入中…';
+  try{
+    const snap = await get(ref(db, 'students/' + auth.currentUser.uid + '/history'));
+    if(!snap.exists()){
+      listEl.innerHTML = '';
+      show(emptyEl);
+      return;
+    }
+    hide(emptyEl);
+    const entries = [];
+    snap.forEach(child => { entries.push(child.val()); });
+    entries.sort((a,b) => (b.ts||0) - (a.ts||0));
+    listEl.innerHTML = entries.map(e => {
+      return '<div class="wq"><div class="q">' + formatDate(e.ts) + '　' + (MODE_LABEL[e.mode] || e.mode) + '</div>' +
+        '<div class="ans">得分：<strong>' + e.pct + '%</strong>　（答對 ' + e.correct + ' / ' + e.total + ' 題）</div></div>';
+    }).join('');
+  } catch(err){
+    listEl.innerHTML = '';
+    emptyEl.textContent = '讀取成績紀錄時發生問題，請稍後再試。';
+    show(emptyEl);
+  }
+});
+
+$('history-back-btn').addEventListener('click', () => {
+  hide(screens.historyScreen);
+  show(screens.setupScreen);
+});
+
+// ---------- Wrong question notebook ----------
+$('open-wrongbook-link').addEventListener('click', async () => {
+  hide(screens.setupScreen); hide(screens.quizScreen); hide(screens.resultScreen);
+  show(screens.wrongbookScreen);
+  const listEl = $('wrongbook-list');
+  const emptyEl = $('wrongbook-empty');
+  const practiceBtn = $('wrongbook-practice-btn');
+  listEl.innerHTML = '載入中…';
+  practiceBtn.disabled = true;
+  try{
+    const snap = await get(ref(db, 'students/' + auth.currentUser.uid + '/wrongQuestions'));
+    if(!snap.exists()){
+      listEl.innerHTML = '';
+      show(emptyEl);
+      wrongbookQuestionIds = [];
+      return;
+    }
+    hide(emptyEl);
+    const ids = Object.keys(snap.val()).map(s => parseInt(s, 10));
+    const questions = ids.map(id => window.ACLS_QUESTIONS.find(q => q.id === id)).filter(Boolean);
+    wrongbookQuestionIds = questions.map(q => q.id);
+    if(questions.length === 0){
+      show(emptyEl);
+      listEl.innerHTML = '';
+      return;
+    }
+    practiceBtn.disabled = false;
+    listEl.innerHTML = questions.map(q => {
+      return '<div class="wq"><div class="q">' + q.question + '</div>' +
+        '<div class="ans">正確答案：<span class="correct-ans">' + q.answer + '. ' + q.options[q.answer] + '</span></div>' +
+        '<div class="ans" style="color:var(--muted);">' + q.explanation + '</div></div>';
+    }).join('');
+  } catch(err){
+    listEl.innerHTML = '';
+    emptyEl.textContent = '讀取錯題本時發生問題，請稍後再試。';
+    show(emptyEl);
+  }
+});
+
+let wrongbookQuestionIds = [];
+
+$('wrongbook-practice-btn').addEventListener('click', () => {
+  if(wrongbookQuestionIds.length === 0) return;
+  const questions = wrongbookQuestionIds.map(id => window.ACLS_QUESTIONS.find(q => q.id === id)).filter(Boolean);
+  hide(screens.wrongbookScreen);
+  if(typeof window.ACLS_startWithQuestions === 'function'){
+    window.ACLS_startWithQuestions(questions);
+  }
+});
+
+$('wrongbook-back-btn').addEventListener('click', () => {
+  hide(screens.wrongbookScreen);
+  show(screens.setupScreen);
+});
+
+// ---------- Persist quiz results (called from the quiz app in index.html) ----------
+window.ACLS_onQuizComplete = async function(result){
+  const uid = auth.currentUser && auth.currentUser.uid;
+  if(!uid) return;
+  try{
+    await push(ref(db, 'students/' + uid + '/history'), {
+      ts: Date.now(),
+      mode: result.mode,
+      total: result.total,
+      correct: result.correct,
+      pct: result.pct
+    });
+    const updates = {};
+    result.userAnswers.forEach(a => {
+      if(a.correct){
+        updates['wrongQuestions/' + a.id] = null; // resolved -> remove from notebook
+      } else {
+        updates['wrongQuestions/' + a.id] = { ts: Date.now() };
+      }
+    });
+    if(Object.keys(updates).length){
+      await update(ref(db, 'students/' + uid), updates);
+    }
+  } catch(err){
+    // Non-fatal: quiz result UI already shown to the student regardless of persistence.
+    console.error('Failed to save quiz result', err);
+  }
+};
 
 // ---------- Logout ----------
 $('logout-link').addEventListener('click', async () => {

@@ -504,3 +504,8 @@ const ACLS_QUESTIONS = [
   explanation:"此敘述為非：單人施救時仍可使用 BVM 給氧，並非「應以口對口人工呼吸較有效」；2025 AHA 建議理想情況下由兩人操作 BVM（一人固定面罩密合、一人擠壓球體）以確保通氣品質。" }
 
 ];
+
+// auth-app.js 是獨立的 module script，無法直接看到這裡用 const 宣告的變數，
+// 因此明確掛到 window 上供其讀取（成績紀錄／我的錯題功能會用到）。
+window.ACLS_QUESTIONS = ACLS_QUESTIONS;
+window.ACLS_CATEGORIES = ACLS_CATEGORIES;
