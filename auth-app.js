@@ -34,16 +34,26 @@ let currentProfile = null; // cached profile data for the logged-in student
 function hide(el){ el.classList.add('hidden'); }
 function show(el){ el.classList.remove('hidden'); }
 
+// The "content area" is whichever single screen is currently active while logged in
+// (setup/quiz/result from the quiz app, or profile/change-pw/history/wrongbook from the
+// account layer). Every navigation action must hide ALL of these before showing its target,
+// otherwise screens stack on top of each other instead of replacing one another.
+const CONTENT_SCREENS = [
+  'profileScreen', 'changePwScreen', 'historyScreen', 'wrongbookScreen',
+  'setupScreen', 'quizScreen', 'resultScreen'
+];
+function hideAllContentScreens(){
+  CONTENT_SCREENS.forEach(key => hide(screens[key]));
+}
+function showContentScreen(key){
+  hideAllContentScreens();
+  show(screens[key]);
+}
+
 function showLoggedOutState(){
   hide(screens.forcePwScreen);
   hide(screens.userBar);
-  hide(screens.profileScreen);
-  hide(screens.changePwScreen);
-  hide(screens.historyScreen);
-  hide(screens.wrongbookScreen);
-  hide(screens.setupScreen);
-  hide(screens.quizScreen);
-  hide(screens.resultScreen);
+  hideAllContentScreens();
   hide(platformCredit);
   show(screens.authScreen);
 }
@@ -51,15 +61,9 @@ function showLoggedOutState(){
 function showMainApp(){
   hide(screens.authScreen);
   hide(screens.forcePwScreen);
-  hide(screens.profileScreen);
-  hide(screens.changePwScreen);
-  hide(screens.historyScreen);
-  hide(screens.wrongbookScreen);
-  hide(screens.quizScreen);
-  hide(screens.resultScreen);
   show(screens.userBar);
   show(platformCredit);
-  show(screens.setupScreen);
+  showContentScreen('setupScreen');
   $('user-bar-name').textContent = '歡迎，' + (currentProfile && currentProfile.name ? currentProfile.name : auth.currentUser.email);
 }
 
@@ -226,8 +230,7 @@ $('open-profile-link').addEventListener('click', async () => {
     currentProfile = profile || {};
   } catch(e){ /* fall back to cached profile */ }
   fillProfileForm(currentProfile || {});
-  hide(screens.setupScreen); hide(screens.quizScreen); hide(screens.resultScreen);
-  show(screens.profileScreen);
+  showContentScreen('profileScreen');
 });
 
 $('profile-save-btn').addEventListener('click', async () => {
@@ -250,8 +253,7 @@ $('profile-save-btn').addEventListener('click', async () => {
 });
 
 $('profile-back-btn').addEventListener('click', () => {
-  hide(screens.profileScreen);
-  show(screens.setupScreen);
+  showContentScreen('setupScreen');
 });
 
 // ---------- Voluntary change password ----------
@@ -260,13 +262,11 @@ $('open-changepw-link').addEventListener('click', () => {
   $('change-pw-current').value = '';
   $('change-pw-new').value = '';
   $('change-pw-confirm').value = '';
-  hide(screens.setupScreen); hide(screens.quizScreen); hide(screens.resultScreen);
-  show(screens.changePwScreen);
+  showContentScreen('changePwScreen');
 });
 
 $('change-pw-back-btn').addEventListener('click', () => {
-  hide(screens.changePwScreen);
-  show(screens.setupScreen);
+  showContentScreen('setupScreen');
 });
 
 $('change-pw-submit').addEventListener('click', async () => {
@@ -298,8 +298,7 @@ $('change-pw-submit').addEventListener('click', async () => {
 const MODE_LABEL = { practice: '練習模式', exam: '模擬考模式' };
 
 $('open-history-link').addEventListener('click', async () => {
-  hide(screens.setupScreen); hide(screens.quizScreen); hide(screens.resultScreen);
-  show(screens.historyScreen);
+  showContentScreen('historyScreen');
   const listEl = $('history-list');
   const emptyEl = $('history-empty');
   listEl.innerHTML = '載入中…';
@@ -326,14 +325,12 @@ $('open-history-link').addEventListener('click', async () => {
 });
 
 $('history-back-btn').addEventListener('click', () => {
-  hide(screens.historyScreen);
-  show(screens.setupScreen);
+  showContentScreen('setupScreen');
 });
 
 // ---------- Wrong question notebook ----------
 $('open-wrongbook-link').addEventListener('click', async () => {
-  hide(screens.setupScreen); hide(screens.quizScreen); hide(screens.resultScreen);
-  show(screens.wrongbookScreen);
+  showContentScreen('wrongbookScreen');
   const listEl = $('wrongbook-list');
   const emptyEl = $('wrongbook-empty');
   const practiceBtn = $('wrongbook-practice-btn');
@@ -374,15 +371,14 @@ let wrongbookQuestionIds = [];
 $('wrongbook-practice-btn').addEventListener('click', () => {
   if(wrongbookQuestionIds.length === 0) return;
   const questions = wrongbookQuestionIds.map(id => window.ACLS_QUESTIONS.find(q => q.id === id)).filter(Boolean);
-  hide(screens.wrongbookScreen);
+  hideAllContentScreens();
   if(typeof window.ACLS_startWithQuestions === 'function'){
     window.ACLS_startWithQuestions(questions);
   }
 });
 
 $('wrongbook-back-btn').addEventListener('click', () => {
-  hide(screens.wrongbookScreen);
-  show(screens.setupScreen);
+  showContentScreen('setupScreen');
 });
 
 // ---------- Persist quiz results (called from the quiz app in index.html) ----------
