@@ -629,8 +629,8 @@ $('admin-save-days-btn').addEventListener('click', async () => {
   try{
     await update(ref(db, 'students/' + currentAdminUid), { accessDaysOverride: days });
     s.accessDaysOverride = days;
-    setSuccess('admin-detail-success', '使用期限已更新為自首次登入起 ' + days + ' 天。');
     openAdminDetail(currentAdminUid); // refresh displayed expiry date
+    setSuccess('admin-detail-success', '使用期限已更新為自首次登入起 ' + days + ' 天。');
   } catch(err){
     setError('admin-detail-error', '更新失敗，請稍後再試。');
   }
