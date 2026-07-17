@@ -5,3 +5,5 @@ admin-tools/*.key.json
 admin-tools/roster*.xlsx
 admin-tools/roster*.xls
 admin-tools/roster*.csv
+admin-tools/roster*.json
+admin-tools/node_modules/
