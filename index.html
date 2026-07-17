@@ -401,13 +401,6 @@
       </div>
       <p class="mode-desc" id="mode-desc">練習模式：每題作答後立即顯示對錯與 2025 AHA 解析。</p>
       <div class="row" style="margin-top:14px;">
-        <span style="font-size:.9rem; color:var(--muted);">出題順序：</span>
-        <div class="toggle-group" id="order-toggle">
-          <button type="button" data-val="sequential" class="active">依原順序</button>
-          <button type="button" data-val="random">隨機出題</button>
-        </div>
-      </div>
-      <div class="row" style="margin-top:14px;">
         <span style="font-size:.9rem; color:var(--muted);">題數：</span>
         <select id="count-select"></select>
         <span class="small-note" id="count-hint" style="margin:0;"></span>
@@ -485,7 +478,6 @@
   const quizScreen = document.getElementById('quiz-screen');
   const resultScreen = document.getElementById('result-screen');
 
-  let order = 'sequential';
   let mode = 'practice'; // 'practice' | 'exam'
   let quizQueue = [];
   let currentIndex = 0;
@@ -513,14 +505,6 @@
   });
   document.getElementById('select-none-btn').addEventListener('click', ()=>{
     catGrid.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.checked=false);
-  });
-
-  document.querySelectorAll('#order-toggle button').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      document.querySelectorAll('#order-toggle button').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      order = btn.dataset.val;
-    });
   });
 
   document.querySelectorAll('#mode-toggle button').forEach(btn=>{
@@ -557,7 +541,7 @@
     const cats = getSelectedCats();
     if(cats.length===0){ alert('請至少選擇一個分類'); return; }
     let pool = ACLS_QUESTIONS.filter(q=>cats.includes(q.category));
-    if(order==='random') pool = shuffle(pool.slice());
+    pool = shuffle(pool.slice());
     const n = parseInt(countSelect.value,10);
     quizQueue = pool.slice(0, n);
     startQuiz();
@@ -731,7 +715,7 @@
 
   // Allows auth-app.js (成績紀錄 / 我的錯題) to launch a quiz from an arbitrary question list.
   window.ACLS_startWithQuestions = function(questionList){
-    quizQueue = questionList;
+    quizQueue = shuffle(questionList.slice());
     mode = 'practice';
     startQuiz();
   };
@@ -739,7 +723,7 @@
   document.getElementById('retry-wrong-btn').addEventListener('click', ()=>{
     const ids = JSON.parse(resultScreen.dataset.wrongIds || '[]');
     if(ids.length===0){ alert('目前沒有錯題，太厲害了！'); return; }
-    quizQueue = ACLS_QUESTIONS.filter(q=>ids.includes(q.id));
+    quizQueue = shuffle(ACLS_QUESTIONS.filter(q=>ids.includes(q.id)));
     mode = 'practice'; // review wrong answers with immediate feedback regardless of original mode
     startQuiz();
   });
