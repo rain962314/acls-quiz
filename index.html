@@ -600,36 +600,39 @@
   }
 
   function selectOption(letter){
-    if(selectedOption) return; // already answered
-    selectedOption = letter;
     const q = quizQueue[currentIndex];
-    const correct = (letter === q.answer);
 
     if(mode === 'exam'){
-      // Exam mode: just mark the chosen option, no reveal until final results.
+      // Exam mode: no reveal, and the choice can be changed freely until "next" is pressed.
+      selectedOption = letter;
       document.querySelectorAll('#q-options .opt').forEach(btn=>{
-        btn.classList.add('disabled');
-        if(btn.dataset.letter === letter) btn.classList.add('selected');
+        btn.classList.toggle('selected', btn.dataset.letter === letter);
       });
-    } else {
-      document.querySelectorAll('#q-options .opt').forEach(btn=>{
-        btn.classList.add('disabled');
-        const l = btn.dataset.letter;
-        if(l === q.answer){
-          btn.classList.add('correct');
-        } else if(l === letter && !correct){
-          btn.classList.add('wrong');
-        } else {
-          btn.classList.add('faded');
-        }
-      });
-
-      const explainBox = document.getElementById('explain-box');
-      document.getElementById('explain-verdict').textContent = correct ? '✓ 答對了' : ('✗ 答錯了，正確答案是 '+q.answer);
-      document.getElementById('explain-verdict').className = 'verdict '+(correct?'ok':'no');
-      document.getElementById('explain-text').textContent = q.explanation;
-      explainBox.classList.add('show');
+      document.getElementById('next-btn').disabled = false;
+      return;
     }
+
+    if(selectedOption) return; // practice mode: locked once revealed
+    selectedOption = letter;
+    const correct = (letter === q.answer);
+
+    document.querySelectorAll('#q-options .opt').forEach(btn=>{
+      btn.classList.add('disabled');
+      const l = btn.dataset.letter;
+      if(l === q.answer){
+        btn.classList.add('correct');
+      } else if(l === letter && !correct){
+        btn.classList.add('wrong');
+      } else {
+        btn.classList.add('faded');
+      }
+    });
+
+    const explainBox = document.getElementById('explain-box');
+    document.getElementById('explain-verdict').textContent = correct ? '✓ 答對了' : ('✗ 答錯了，正確答案是 '+q.answer);
+    document.getElementById('explain-verdict').className = 'verdict '+(correct?'ok':'no');
+    document.getElementById('explain-text').textContent = q.explanation;
+    explainBox.classList.add('show');
 
     document.getElementById('next-btn').disabled = false;
 
@@ -637,6 +640,10 @@
   }
 
   document.getElementById('next-btn').addEventListener('click', ()=>{
+    if(mode === 'exam' && selectedOption){
+      const q = quizQueue[currentIndex];
+      userAnswers.push({id:q.id, correct:(selectedOption===q.answer), chosen:selectedOption, category:q.category});
+    }
     if(currentIndex < quizQueue.length-1){
       currentIndex++;
       renderQuestion();
