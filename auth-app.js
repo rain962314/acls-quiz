@@ -99,7 +99,7 @@ async function loadProfile(uid){
 
 function fillProfileForm(profile){
   $('profile-name').value = profile.name || '';
-  $('profile-email').value = auth.currentUser.email || '';
+  $('profile-email').value = (auth.currentUser && auth.currentUser.email) || '';
   $('profile-phone').value = profile.phone || '';
   $('profile-birthday').value = profile.birthday || '';
   $('profile-org').value = profile.org || '';
@@ -225,10 +225,12 @@ $('force-pw-submit').addEventListener('click', async () => {
 $('open-profile-link').addEventListener('click', async () => {
   setSuccess('profile-success', '');
   setError('profile-error', '');
-  try{
-    const profile = await loadProfile(auth.currentUser.uid);
-    currentProfile = profile || {};
-  } catch(e){ /* fall back to cached profile */ }
+  if(auth.currentUser){
+    try{
+      const profile = await loadProfile(auth.currentUser.uid);
+      if(profile) currentProfile = profile;
+    } catch(e){ /* fall back to cached profile */ }
+  }
   fillProfileForm(currentProfile || {});
   showContentScreen('profileScreen');
 });
