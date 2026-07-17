@@ -165,13 +165,11 @@
   .auth-wrap{max-width:420px; margin:40px auto;}
   .auth-logo{text-align:center; margin-bottom:6px; font-size:.85rem; color:var(--muted);}
   .yaozhi-brand{text-align:center;}
-  .yaozhi-logo{width:64px; height:64px;}
-  .yaozhi-title{
-    margin:6px 0 2px; color:#fff; font-size:1.5rem; font-weight:800;
-    letter-spacing:2px; display:flex; align-items:baseline; justify-content:center; gap:10px;
+  .yaozhi-logo{
+    width:84px; height:84px; border-radius:50%; object-fit:cover;
+    box-shadow:0 0 0 2px rgba(212,175,55,.5);
   }
-  .yaozhi-en{font-size:.72rem; font-weight:700; letter-spacing:3px; color:#D4AF37;}
-  .yaozhi-sub{margin:0; font-size:.8rem; color:#b9c4cf; letter-spacing:1px;}
+  .yaozhi-sub{margin:8px 0 0; font-size:.8rem; color:#b9c4cf; letter-spacing:1px;}
   .platform-credit{
     text-align:center; font-size:.78rem; color:var(--muted);
     max-width:760px; margin:4px auto 0; line-height:1.6;
@@ -191,14 +189,7 @@
 
 <header>
   <div class="yaozhi-brand">
-    <svg viewBox="0 0 200 200" class="yaozhi-logo" aria-hidden="true">
-      <circle cx="100" cy="100" r="88" fill="none" stroke="#D4AF37" stroke-width="3"/>
-      <path d="M100 24 L107 46 L129 41 L114 57 L131 71 L108 67 L100 90 L92 67 L69 71 L86 57 L71 41 L93 46 Z" fill="#D4AF37"/>
-      <path d="M38 122 Q70 106 99 122 L99 158 Q70 142 38 158 Z" fill="#0D1B3D"/>
-      <path d="M162 122 Q130 106 101 122 L101 158 Q130 142 162 158 Z" fill="#0D1B3D"/>
-      <polyline points="42,130 68,130 77,110 87,148 96,122 101,130 158,130" fill="none" stroke="#D4AF37" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <h1 class="yaozhi-title">曜知<span class="yaozhi-en">YAOZHI</span></h1>
+    <img src="media/logo.png" alt="曜知 YAOZHI" class="yaozhi-logo">
     <p class="yaozhi-sub">醫療學習平台 Learning Platform</p>
   </div>
   <p class="header-course">ACLS 高級心臟救命術 題庫練習系統　｜　解析依據 2025 AHA Guidelines for CPR &amp; ECC</p>
