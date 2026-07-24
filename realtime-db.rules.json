@@ -6,7 +6,27 @@
       ".read": "auth != null && auth.token.email == 'rain962314@gmail.com'",
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.token.email == 'rain962314@gmail.com')",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.email == 'rain962314@gmail.com')"
+
+        "name":           { ".write": "auth != null && (auth.uid === $uid || auth.token.email == 'rain962314@gmail.com')" },
+        "phone":          { ".write": "auth != null && (auth.uid === $uid || auth.token.email == 'rain962314@gmail.com')" },
+        "birthday":       { ".write": "auth != null && (auth.uid === $uid || auth.token.email == 'rain962314@gmail.com')" },
+        "org":            { ".write": "auth != null && (auth.uid === $uid || auth.token.email == 'rain962314@gmail.com')" },
+        "title":          { ".write": "auth != null && (auth.uid === $uid || auth.token.email == 'rain962314@gmail.com')" },
+        "certExpiry":     { ".write": "auth != null && (auth.uid === $uid || auth.token.email == 'rain962314@gmail.com')" },
+        "history":        { ".write": "auth != null && (auth.uid === $uid || auth.token.email == 'rain962314@gmail.com')" },
+        "wrongQuestions": { ".write": "auth != null && (auth.uid === $uid || auth.token.email == 'rain962314@gmail.com')" },
+
+        "email": { ".write": "auth != null && auth.token.email == 'rain962314@gmail.com'" },
+
+        "mustChangePassword": {
+          ".write": "auth != null && (auth.token.email == 'rain962314@gmail.com' || (auth.uid === $uid && newData.val() === false))"
+        },
+        "firstLoginAt": {
+          ".write": "auth != null && (auth.token.email == 'rain962314@gmail.com' || (auth.uid === $uid && !data.exists()))"
+        },
+
+        "disabled":           { ".write": "auth != null && auth.token.email == 'rain962314@gmail.com'" },
+        "accessDaysOverride": { ".write": "auth != null && auth.token.email == 'rain962314@gmail.com'" }
       }
     }
   }

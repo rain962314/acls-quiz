@@ -128,6 +128,17 @@ function formatDate(ts){
   return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
 }
 
+// Student profile fields (name/phone/org/title/...) are free text the student controls
+// themselves. The admin panel renders many students' fields into one page via innerHTML,
+// so every such value MUST be escaped before interpolation — otherwise a student could store
+// an HTML/script payload in their own profile that executes in the admin's browser session
+// (stored XSS) the next time the admin views the class list or that student's detail page.
+function escapeHtml(str){
+  return String(str == null ? '' : str).replace(/[&<>"']/g, c => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+  ));
+}
+
 function computeExpiresAt(profile){
   const days = profile.accessDaysOverride || ACCESS_DAYS;
   return (profile.firstLoginAt || Date.now()) + days*24*60*60*1000;
@@ -509,9 +520,9 @@ function renderAdminOverview(){
       ? '<span class="status-pill disabled">已停用</span>'
       : '<span class="status-pill active">啟用中</span>';
     studentHtml += '<tr class="clickable" data-uid="'+uid+'">'+
-      '<td class="name-cell">'+(s.name||'(未命名)')+'</td>'+
-      '<td>'+(s.email||'')+'</td>'+
-      '<td>'+[s.org,s.title].filter(Boolean).join(' / ')+'</td>'+
+      '<td class="name-cell">'+escapeHtml(s.name||'(未命名)')+'</td>'+
+      '<td>'+escapeHtml(s.email||'')+'</td>'+
+      '<td>'+escapeHtml([s.org,s.title].filter(Boolean).join(' / '))+'</td>'+
       '<td>'+history.length+'</td>'+
       '<td>'+latestPct+'</td>'+
       '<td>'+wrongCount+'</td>'+
@@ -547,12 +558,12 @@ function openAdminDetail(uid){
 
   $('admin-detail-name').textContent = (s.name || '(未命名)') + ' 的詳細資料';
   $('admin-detail-profile').innerHTML = [
-    ['Email', s.email || ''],
-    ['手機', s.phone || ''],
-    ['生日', s.birthday || ''],
-    ['服務單位', s.org || ''],
-    ['職稱', s.title || ''],
-    ['證照到期日', s.certExpiry || '（未填）'],
+    ['Email', escapeHtml(s.email || '')],
+    ['手機', escapeHtml(s.phone || '')],
+    ['生日', escapeHtml(s.birthday || '')],
+    ['服務單位', escapeHtml(s.org || '')],
+    ['職稱', escapeHtml(s.title || '')],
+    ['證照到期日', escapeHtml(s.certExpiry || '（未填）')],
     ['狀態', s.disabled ? '已停用' : '啟用中'],
     ['使用效期', s.firstLoginAt ? formatDate(computeExpiresAt(s)) + '（首次登入 ' + formatDate(s.firstLoginAt) + '）' : '尚未登入過']
   ].map(([k,v]) => '<tr><td style="color:var(--muted); width:110px;">'+k+'</td><td>'+v+'</td></tr>').join('');
