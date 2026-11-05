@@ -556,6 +556,7 @@
   let currentIndex = 0;
   let userAnswers = []; // {id, correct, chosen}
   let selectedOption = null;
+  let currentOrder = ['A','B','C','D']; // underlying option letters, in the order they are shown
 
   const MODE_DESC = {
     practice: '練習模式：每題作答後立即顯示對錯與 2025 AHA 解析。',
@@ -639,9 +640,24 @@
     renderQuestion();
   }
 
+  // Shuffle which option is shown where. Underlying letters (q.answer, history, wrong-notebook) never change.
+  // "以上皆是 / 以上皆非" options stay pinned; a question may opt out entirely with noShuffle:true.
+  function makeOrder(q){
+    const letters = ['A','B','C','D'];
+    if(q.noShuffle) return letters;
+    const pinned = letters.map(l=>/以上皆是|以上皆非/.test(q.options[l]));
+    const free = shuffle(letters.filter((l,i)=>!pinned[i]));
+    let k = 0;
+    return letters.map((l,i)=>pinned[i] ? l : free[k++]);
+  }
+  function shownLabel(letter){
+    return 'ABCD'.charAt(currentOrder.indexOf(letter));
+  }
+
   function renderQuestion(){
     selectedOption = null;
     const q = quizQueue[currentIndex];
+    currentOrder = makeOrder(q);
     document.getElementById('q-counter').textContent = '第 '+(currentIndex+1)+' / '+quizQueue.length+' 題';
     document.getElementById('q-cat').textContent = ACLS_CATEGORIES[q.category];
     document.getElementById('progress-fill').style.width = ((currentIndex)/quizQueue.length*100)+'%';
@@ -658,11 +674,11 @@
 
     const optWrap = document.getElementById('q-options');
     optWrap.innerHTML = '';
-    ['A','B','C','D'].forEach(letter=>{
+    currentOrder.forEach((letter, i)=>{
       const btn = document.createElement('button');
       btn.className = 'opt';
       btn.dataset.letter = letter;
-      btn.innerHTML = '<span class="tag">'+letter+'</span><span>'+q.options[letter]+'</span>';
+      btn.innerHTML = '<span class="tag">'+'ABCD'.charAt(i)+'</span><span>'+q.options[letter]+'</span>';
       btn.addEventListener('click', ()=>selectOption(letter));
       optWrap.appendChild(btn);
     });
@@ -702,20 +718,20 @@
     });
 
     const explainBox = document.getElementById('explain-box');
-    document.getElementById('explain-verdict').textContent = correct ? '✓ 答對了' : ('✗ 答錯了，正確答案是 '+q.answer);
+    document.getElementById('explain-verdict').textContent = correct ? '✓ 答對了' : ('✗ 答錯了，正確答案是 '+shownLabel(q.answer));
     document.getElementById('explain-verdict').className = 'verdict '+(correct?'ok':'no');
     document.getElementById('explain-text').textContent = q.explanation;
     explainBox.classList.add('show');
 
     document.getElementById('next-btn').disabled = false;
 
-    userAnswers.push({id:q.id, correct:correct, chosen:letter, category:q.category});
+    userAnswers.push({id:q.id, correct:correct, chosen:letter, chosenLabel:shownLabel(letter), answerLabel:shownLabel(q.answer), category:q.category});
   }
 
   document.getElementById('next-btn').addEventListener('click', ()=>{
     if(mode === 'exam' && selectedOption){
       const q = quizQueue[currentIndex];
-      userAnswers.push({id:q.id, correct:(selectedOption===q.answer), chosen:selectedOption, category:q.category});
+      userAnswers.push({id:q.id, correct:(selectedOption===q.answer), chosen:selectedOption, chosenLabel:shownLabel(selectedOption), answerLabel:shownLabel(q.answer), category:q.category});
     }
     if(currentIndex < quizQueue.length-1){
       currentIndex++;
@@ -771,8 +787,8 @@
       wrongList.innerHTML = wrongs.map(a=>{
         const q = ACLS_QUESTIONS.find(x=>x.id===a.id);
         return '<div class="wq"><div class="q">'+q.question+'</div>'+
-          '<div class="ans">你的答案：<span class="you">'+a.chosen+'. '+q.options[a.chosen]+'</span></div>'+
-          '<div class="ans">正確答案：<span class="correct-ans">'+q.answer+'. '+q.options[q.answer]+'</span></div>'+
+          '<div class="ans">你的答案：<span class="you">'+(a.chosenLabel||a.chosen)+'. '+q.options[a.chosen]+'</span></div>'+
+          '<div class="ans">正確答案：<span class="correct-ans">'+(a.answerLabel||q.answer)+'. '+q.options[q.answer]+'</span></div>'+
           '<div class="ans" style="color:var(--muted);">'+q.explanation+'</div></div>';
       }).join('');
     }

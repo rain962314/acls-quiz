@@ -7,3 +7,6 @@ admin-tools/roster*.xls
 admin-tools/roster*.csv
 admin-tools/roster*.json
 admin-tools/node_modules/
+
+# 審稿草稿（內含未上線題目，不要公開）
+drafts/
