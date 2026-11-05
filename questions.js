@@ -273,7 +273,7 @@ const ACLS_QUESTIONS = [
 
 { id:63, category:"rosc", question:"純氧給太高太久可能造成的問題為？",
   options:{A:"增加缺血心肌損傷", B:"誘發低血糖", C:"引起急性高血鈣", D:"抑制抗生素效果"}, answer:"A",
-  explanation:"ROSC 後過度給氧造成的高血氧會增加活性氧自由基，加重缺血再灌流心肌與腦部損傷，故建議滴定氧氣使 SpO₂ 維持在 92–98%，避免高血氧與低血氧。" },
+  explanation:"ROSC 後過度給氧造成的高血氧會增加活性氧自由基，加重缺血再灌流心肌與腦部損傷，故 2025 AHA 建議：取得可靠的 SpO₂ 或 PaO₂ 數值前可先給予 100% 氧氣，之後滴定吸入氧濃度，使 SpO₂ 維持在 90–98%（PaO₂ 約 60–105 mmHg），同時避免低血氧與高血氧。" },
 
 { id:64, category:"rosc", question:"在心搏停止照護過程中，若 ETCO₂ 持續 <10 mmHg，最應優先考慮？",
   options:{A:"增加電擊能量", B:"提升按壓品質或更換按壓者", C:"增加 Atropine 劑量", D:"立即停止 CPR"}, answer:"B",
